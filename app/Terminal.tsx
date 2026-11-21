@@ -77,6 +77,18 @@ export default function Terminal({ onOut }: { onOut: () => void }) {
   const [prof, setProf] = useState<any>(null), [auto, setAuto] = useState(false), [log, setLog] = useState<string[]>([]), [learning, setLearning] = useState(false);
   const [guard, setGuard] = useState({ lotMax: 0.1, lossMax: 50, perDay: 3 });
   useEffect(() => { acted.current = +(localStorage.getItem('acted') || 0); }, []);
+  const [srv, setSrv] = useState<any>(null), [srvSt, setSrvSt] = useState<any>(null), [srvBusy, setSrvBusy] = useState(false);
+  const loadSrv = () => api('/api/store').then(s => { if (!s.error) { setSrv(s.auto || null); setSrvSt(s.autostate || null); } });
+  useEffect(() => { if (tab !== 'agent') return; loadSrv(); const t = setInterval(loadSrv, 15000); return () => clearInterval(t); }, [tab]);
+  const toggleSrv = async () => {
+    const on = !srv?.enabled;
+    if (on && !confirm(`Ligar o automático 24h em ${symbol} ${tf}? O servidor vai enviar ordens reais na conta conectada, mesmo com o painel fechado, com no máx. ${guard.lotMax} lote e perda diária de ${guard.lossMax}.`)) return;
+    setSrvBusy(true);
+    if (on) await api('/api/store', 'PUT', { key: 'guard', value: guard });
+    const r = await api('/api/auto', 'POST', { enabled: on, symbol, tf: TF[tf], code: applied });
+    setSrvBusy(false); if (r.error) return setMsg(r.error);
+    if (on) setAuto(false); loadSrv();
+  };
   const setG = (g: any) => { setGuard(g); api('/api/store', 'PUT', { key: 'guard', value: g }); };
 
   // Agente de memória: cada entrada feita pelo painel é gravada com o contexto do indicador naquele momento
@@ -228,6 +240,13 @@ export default function Terminal({ onOut }: { onOut: () => void }) {
           {([['lotMax', 'Lote máx.'], ['lossMax', 'Perda máx./dia'], ['perDay', 'Ordens/dia']] as const).map(([k, t]) => <label key={k} style={{ flex: 1, fontSize: 12, color: '#9aa4b2' }}>{t}<input style={inp} type="number" step="any" value={guard[k]} onChange={e => setG({ ...guard, [k]: +e.target.value })} /></label>)}</div>
         <button style={{ ...btn(auto ? '#e5484d' : '#30a46c'), width: '100%' }} disabled={!prof} onClick={() => { if (auto) return setAuto(false); if (guard.lotMax > 0 && guard.lossMax > 0 && confirm(`Ligar o automático em ${symbol} ${tf}? Ele envia ordens reais na conta conectada, com no máx. ${guard.lotMax} lote e perda diária de ${guard.lossMax}.`)) { setLog([]); setAuto(true); } }}>{auto ? 'Automático LIGADO · tocar para desligar' : 'Ligar automático'}</button>
         {auto && <p style={{ color: '#f5a524', fontSize: 12 }}>Mantenha o painel aberto e a tela ligada: o executor roda neste aparelho.</p>}
+        <div style={{ ...cell, marginTop: 12 }}>
+          <b>Automático 24h no servidor</b>
+          <p style={{ color: '#9aa4b2', fontSize: 12, margin: '4px 0 8px' }}>Roda mesmo com o painel fechado, com as mesmas travas. Usa o símbolo, o timeframe e o indicador abertos agora.</p>
+          <button style={{ ...btn(srv?.enabled ? '#e5484d' : '#30a46c'), width: '100%' }} disabled={!prof || srvBusy} onClick={toggleSrv}>{srv?.enabled ? `24h LIGADO em ${srv.symbol} ${srv.tf} · tocar para desligar` : 'Ligar automático 24h'}</button>
+          {srv?.enabled && srvSt && <div style={{ fontSize: 12, color: '#9aa4b2', marginTop: 6 }}>Última checagem: {srvSt.lastRun ? new Date(srvSt.lastRun).toLocaleTimeString() : '—'}{srvSt.error ? ' · ' + srvSt.error : ''}</div>}
+          {(srvSt?.log || []).slice(0, 8).map((l: string, i: number) => <div key={i} style={{ fontSize: 12, padding: '3px 0' }}>{l}</div>)}
+        </div>
         {log.map((l, i) => <div key={i} style={{ ...cell, fontSize: 12 }}>{l}</div>)}
       </>}
 

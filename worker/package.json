@@ -1,0 +1,2 @@
+{"name":"mt5-worker","private":true,"main":"index.js","scripts":{"start":"node index.js"},
+"dependencies":{"@supabase/supabase-js":"^2.45.0","metaapi.cloud-sdk":"latest","quickjs-emscripten":"0.32.0"}}
