@@ -6,7 +6,9 @@ import { api, inp, btn, runIndicator, PAL } from '@/lib/ui';
 
 const TF: Record<string, string> = { M1: '1m', M5: '5m', M15: '15m', M30: '30m', H1: '1h', H4: '4h', D1: '1d' };
 const T = (s: string) => s.replace(/^(POSITION|ORDER|DEAL)_TYPE_/, '').replace('_', ' ').toLowerCase();
-const col = (n: number) => (n >= 0 ? '#30a46c' : '#e5484d');
+const col = (n: number) => (n >= 0 ? '#4c8dff' : '#ff453a');
+const dg = (n: number) => (n < 10 ? 5 : n < 500 ? 3 : 2);
+const BUY = '#4c8dff', SELL = '#ff453a', GRAY = '#8e8e93', LINE = '#1c1c1e';
 const n2 = (n: any) => (n ? String(n) : '');
 const TABS: [string, string][] = [['quotes', 'Cotações'], ['chart', 'Gráfico'], ['trade', 'Negociação'], ['hist', 'Histórico'], ['agent', 'Agentes'], ['ind', 'Indicadores']];
 const TS: Record<string, number> = { M1: 60, M5: 300, M15: 900, M30: 1800, H1: 3600, H4: 14400, D1: 86400 };
@@ -56,7 +58,7 @@ export default function Terminal({ onOut }: { onOut: () => void }) {
   useEffect(() => {
     if (tab !== 'chart') return;
     const el = document.getElementById('chart'); if (!el) return;
-    const chart = createChart(el, { height: 360, layout: { background: { color: '#0e1116' }, textColor: '#9aa4b2' }, grid: { vertLines: { color: '#171c24' }, horzLines: { color: '#171c24' } }, timeScale: { timeVisible: true } });
+    const chart = createChart(el, { height: 360, layout: { background: { color: '#000000' }, textColor: '#9aa4b2' }, grid: { vertLines: { color: '#171c24' }, horzLines: { color: '#171c24' } }, timeScale: { timeVisible: true } });
     const cs = chart.addCandlestickSeries(), lines: any = {}; let dead = false, first = true;
     const load = async () => {
       const r = await api(`/api/candles?symbol=${symbol}&tf=${TF[tf]}`); if (dead) return; if (r.error) return setMsg(r.error);
@@ -164,9 +166,12 @@ export default function Terminal({ onOut }: { onOut: () => void }) {
     setBusy(false);
   };
 
+  const tickRef = useRef<Record<string, { p: number; c: string }>>({});
+  const tick = (sym: string, bid?: number) => { const t = (tickRef.current[sym] ||= { p: bid ?? 0, c: '#e6e6e6' }); if (bid != null) { if (bid > t.p) t.c = BUY; else if (bid < t.p) t.c = SELL; t.p = bid; } return t.c; };
+  const px = (n?: number) => { if (n == null) return '—'; const t = n.toFixed(dg(n)); return <><span style={{ fontSize: 15 }}>{t.slice(0, -3)}</span><b style={{ fontSize: 21, fontWeight: 600 }}>{t.slice(-3, -1)}</b><sup style={{ fontSize: 11 }}>{t.slice(-1)}</sup></>; };
   const A = d?.account, P: any[] = d?.positions || [], O: any[] = d?.orders || [];
-  const cell = { padding: '6px 4px', borderBottom: '1px solid #262d38', fontSize: 13 } as const;
-  const sm = (bg = '#262d38') => ({ ...btn(bg), flex: 'none', padding: '6px 10px', fontSize: 13 } as const);
+  const cell = { padding: '6px 4px', borderBottom: '1px solid #1c1c1e', fontSize: 13 } as const;
+  const sm = (bg = '#1c1c1e') => ({ ...btn(bg), flex: 'none', padding: '6px 10px', fontSize: 13 } as const);
 
   return (
     <main style={{ maxWidth: 760, margin: '0 auto', padding: '12px 12px 80px' }}>
@@ -174,19 +179,23 @@ export default function Terminal({ onOut }: { onOut: () => void }) {
         <b>{symbol}</b>
         <span>{A ? <>Saldo {A.balance} · Equity {A.equity} <span style={{ color: col(A.equity - A.balance) }}>({(A.equity - A.balance).toFixed(2)})</span></> : '…'}</span>
         <button style={sm()} aria-label="Configurar IA" title="Configurar IA" onClick={() => setCfgOpen(true)}>⚙<span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: 4, marginLeft: 5, background: ai?.configured ? '#30a46c' : '#e5484d' }} /></button>
-        <button style={sm()} onClick={async () => { await api('/api/connect', 'DELETE'); onOut(); }}>Sair</button>
+        <button style={sm()} onClick={async () => { await api('/api/connect', 'DELETE'); onOut(); }}>Trocar conta</button>
       </div>
+      {d?.preview && <div style={{ background: '#3a2f0b', border: '1px solid #f5a52455', color: '#f5d58a', borderRadius: 8, padding: '8px 10px', fontSize: 12, margin: '0 0 8px' }}>Pré-visualização com dados de exemplo. As ordens estão desativadas. Toque em Trocar conta e conecte uma conta MT5 para operar de verdade.</div>}
       {msg && <p style={{ color: '#f5a524', margin: '4px 0' }}>{msg}</p>}
 
       {tab === 'quotes' && <>
-        {watch.map(s => <div key={s} style={{ display: 'flex', justifyContent: 'space-between', ...cell, fontSize: 16 }} onClick={() => { setSymbol(s); setTab('chart'); }}>
-          <b>{s}</b><span style={{ color: '#e5484d' }}>{d?.quotes?.[s]?.bid ?? '—'}</span><span style={{ color: '#3e63dd' }}>{d?.quotes?.[s]?.ask ?? '—'}</span>
-          <button style={sm()} onClick={e => { e.stopPropagation(); saveW(watch.filter(x => x !== s)); }}>×</button></div>)}
-        <button style={{ ...sm('#3e63dd'), marginTop: 10 }} onClick={() => { const s = prompt('Símbolo (como na sua corretora)')?.toUpperCase().trim(); if (s && !watch.includes(s)) saveW([...watch, s]); }}>+ Adicionar símbolo</button>
+        {watch.map(sy => { const qq = d?.quotes?.[sy], c = tick(sy, qq?.bid); return (
+          <div key={sy} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 2px', borderBottom: `1px solid ${LINE}` }} onClick={() => { setSymbol(sy); setTab('chart'); }}>
+            <div style={{ flex: 1 }}><div style={{ fontWeight: 700, fontSize: 16 }}>{sy}</div><div style={{ color: GRAY, fontSize: 11 }}>{qq ? `spread ${Math.round((qq.ask - qq.bid) * 10 ** dg(qq.bid))}` : 'sem cotação'}</div></div>
+            <div style={{ color: c, minWidth: 88, textAlign: 'right' }}>{px(qq?.bid)}</div>
+            <div style={{ color: c, minWidth: 88, textAlign: 'right' }}>{px(qq?.ask)}</div>
+            <button style={sm()} onClick={e => { e.stopPropagation(); saveW(watch.filter(x => x !== sy)); }}>×</button></div>); })}
+        <button style={{ ...sm(BUY), marginTop: 10 }} onClick={() => { const sy = prompt('Símbolo (como na sua corretora)')?.toUpperCase().trim(); if (sy && !watch.includes(sy)) saveW([...watch, sy]); }}>+ Adicionar símbolo</button>
       </>}
 
       {tab === 'chart' && <>
-        <div style={{ display: 'flex', gap: 4, overflowX: 'auto', marginBottom: 6 }}>{Object.keys(TF).map(k => <button key={k} style={sm(k === tf ? '#3e63dd' : '#262d38')} onClick={() => setTf(k)}>{k}</button>)}</div>
+        <div style={{ display: 'flex', gap: 4, overflowX: 'auto', marginBottom: 6 }}>{Object.keys(TF).map(k => <button key={k} style={sm(k === tf ? '#3e63dd' : '#1c1c1e')} onClick={() => setTf(k)}>{k}</button>)}</div>
         <div id="chart" />
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
           <button style={btn('#e5484d')} onClick={() => act({ action: 'sell', symbol, volume: lot })}>Vender {q?.bid}</button>
@@ -197,34 +206,40 @@ export default function Terminal({ onOut }: { onOut: () => void }) {
       </>}
 
       {tab === 'trade' && <>
-        {A && <div style={{ fontSize: 13, color: '#9aa4b2', marginBottom: 8 }}>Margem {A.margin} · Livre {A.freeMargin} · Nível {A.marginLevel ? A.marginLevel.toFixed(0) + '%' : '—'}</div>}
+        {A && <div style={{ marginBottom: 10 }}>
+          {([['Saldo', A.balance], ['Equity', A.equity], ['Margem', A.margin], ['Margem livre', A.freeMargin], ['Lucro', P.reduce((t: number, p: any) => t + p.profit, 0)]] as [string, number][]).map(([k, v]) => <div key={k} style={{ display: 'flex', alignItems: 'baseline', padding: '4px 0', fontSize: 14 }}><span style={{ color: GRAY }}>{k}:</span><span style={{ flex: 1, borderBottom: '1px dotted #3a3a3c', margin: '0 6px' }} /><b style={{ fontWeight: 600, color: k === 'Lucro' ? col(v) : undefined }}>{v.toFixed(2)}</b></div>)}
+          <div style={{ display: 'flex', alignItems: 'baseline', padding: '4px 0', fontSize: 14 }}><span style={{ color: GRAY }}>Nível de margem (%):</span><span style={{ flex: 1, borderBottom: '1px dotted #3a3a3c', margin: '0 6px' }} /><b style={{ fontWeight: 600 }}>{A.marginLevel ? A.marginLevel.toFixed(2) : '—'}</b></div>
+        </div>}
         <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
-          <button style={sm('#3e63dd')} onClick={() => setDlg(true)}>Nova ordem</button>
-          {[['all', 'Fechar tudo'], ['profit', 'Fechar lucro'], ['loss', 'Fechar prejuízo']].map(([m, t]) => <button key={m} style={sm('#e5484d')} onClick={() => confirm(t + '?') && act({ action: 'closeAll', mode: m })}>{t}</button>)}
+          <button style={sm(BUY)} onClick={() => setDlg(true)}>Nova ordem</button>
+          {[['all', 'Fechar tudo'], ['profit', 'Fechar lucro'], ['loss', 'Fechar prejuízo']].map(([m, t]) => <button key={m} style={sm(SELL)} onClick={() => confirm(t + '?') && act({ action: 'closeAll', mode: m })}>{t}</button>)}
         </div>
-        <b>Posições ({P.length})</b>
-        {P.map(p => <div key={p.id} style={cell}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span><b>{p.symbol}</b> {T(p.type)} {p.volume}</span><b style={{ color: col(p.profit) }}>{p.profit.toFixed(2)}</b></div>
-          <div style={{ color: '#9aa4b2' }}>{p.openPrice} → {p.currentPrice} · SL {n2(p.stopLoss) || '—'} · TP {n2(p.takeProfit) || '—'}</div>
+        <div style={{ background: LINE, color: GRAY, fontSize: 12, padding: '4px 8px' }}>Posições ({P.length})</div>
+        {P.map(p => { const buy = /BUY/.test(p.type); return <div key={p.id} style={{ padding: '8px 2px', borderBottom: `1px solid ${LINE}` }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}><span><b>{p.symbol}</b>, <span style={{ color: buy ? BUY : SELL }}>{buy ? 'buy' : 'sell'} {p.volume}</span></span><b style={{ fontSize: 17, color: col(p.profit) }}>{p.profit.toFixed(2)}</b></div>
+          <div style={{ color: GRAY, fontSize: 13 }}>{p.openPrice} → {p.currentPrice}</div>
+          <div style={{ color: GRAY, fontSize: 12 }}>S/L: {n2(p.stopLoss) || '—'} · T/P: {n2(p.takeProfit) || '—'}</div>
           <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
             <button style={sm()} onClick={() => { const sl = edit('Stop Loss', p.stopLoss); if (sl === undefined) return; const tp = edit('Take Profit', p.takeProfit); if (tp === undefined) return; act({ action: 'modify', positionId: p.id, sl, tp }); }}>Modificar</button>
             <button style={sm()} onClick={() => { const v = edit('Volume a fechar', p.volume); if (v) act({ action: 'close', positionId: p.id, volume: +v < p.volume ? v : undefined }); }}>Fechar parcial</button>
-            <button style={sm('#e5484d')} onClick={() => act({ action: 'close', positionId: p.id })}>Fechar</button>
-          </div></div>)}
-        <b style={{ display: 'block', marginTop: 12 }}>Ordens pendentes ({O.length})</b>
-        {O.map(o => <div key={o.id} style={cell}>
-          <div><b>{o.symbol}</b> {T(o.type)} {o.currentVolume ?? o.volume} @ {o.openPrice} · SL {n2(o.stopLoss) || '—'} · TP {n2(o.takeProfit) || '—'}</div>
+            <button style={sm(SELL)} onClick={() => act({ action: 'close', positionId: p.id })}>Fechar</button>
+          </div></div>; })}
+        <div style={{ background: LINE, color: GRAY, fontSize: 12, padding: '4px 8px', marginTop: 12 }}>Ordens pendentes ({O.length})</div>
+        {O.map(o => { const buy = /BUY/.test(o.type); return <div key={o.id} style={{ padding: '8px 2px', borderBottom: `1px solid ${LINE}` }}>
+          <div><b>{o.symbol}</b>, <span style={{ color: buy ? BUY : SELL }}>{T(o.type)} {o.currentVolume ?? o.volume}</span></div>
+          <div style={{ color: GRAY, fontSize: 13 }}>@ {o.openPrice} · S/L {n2(o.stopLoss) || '—'} · T/P {n2(o.takeProfit) || '—'}</div>
           <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
             <button style={sm()} onClick={() => { const price = edit('Preço', o.openPrice); if (price === undefined) return; const sl = edit('Stop Loss', o.stopLoss); if (sl === undefined) return; const tp = edit('Take Profit', o.takeProfit); if (tp === undefined) return; act({ action: 'modifyOrder', orderId: o.id, price, sl, tp }); }}>Modificar</button>
-            <button style={sm('#e5484d')} onClick={() => act({ action: 'cancel', orderId: o.id })}>Cancelar</button>
-          </div></div>)}
+            <button style={sm(SELL)} onClick={() => act({ action: 'cancel', orderId: o.id })}>Cancelar</button>
+          </div></div>; })}
       </>}
 
       {tab === 'hist' && <>
-        <b>Últimos 7 dias</b>
-        {hist.map(x => <div key={x.id} style={{ display: 'flex', justifyContent: 'space-between', ...cell }}>
-          <span>{new Date(x.time).toLocaleString()} · <b>{x.symbol}</b> {T(x.type)} {x.volume}</span><b style={{ color: col(x.profit) }}>{(x.profit + (x.commission || 0) + (x.swap || 0)).toFixed(2)}</b></div>)}
-        {!hist.length && <p style={{ color: '#9aa4b2' }}>Nenhuma operação fechada no período.</p>}
+        <div style={{ background: LINE, color: GRAY, fontSize: 12, padding: '4px 8px' }}>Operações fechadas · últimos 7 dias</div>
+        {hist.map(x => { const net = x.profit + (x.commission || 0) + (x.swap || 0); return <div key={x.id} style={{ padding: '8px 2px', borderBottom: `1px solid ${LINE}` }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}><span><b>{x.symbol}</b>, <span style={{ color: /BUY/.test(x.type) ? BUY : SELL }}>{T(x.type)} {x.volume}</span></span><b style={{ fontSize: 17, color: col(net) }}>{net.toFixed(2)}</b></div>
+          <div style={{ color: GRAY, fontSize: 12 }}>{new Date(x.time).toLocaleString()} · {x.price}</div></div>; })}
+        {!hist.length && <p style={{ color: GRAY }}>Nenhuma operação fechada no período.</p>}
       </>}
 
       {tab === 'agent' && <>
@@ -265,7 +280,7 @@ export default function Terminal({ onOut }: { onOut: () => void }) {
       </>}
 
       {cfgOpen && <div style={{ position: 'fixed', inset: 0, background: '#000b', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 20 }} onClick={() => setCfgOpen(false)}>
-        <div role="dialog" aria-label="Configurar IA" style={{ background: '#0e1116', border: '1px solid #262d38', borderRadius: 12, padding: 16, width: '100%', maxWidth: 400, maxHeight: '90vh', overflow: 'auto' }} onClick={e => e.stopPropagation()}>
+        <div role="dialog" aria-label="Configurar IA" style={{ background: '#0e1116', border: '1px solid #1c1c1e', borderRadius: 12, padding: 16, width: '100%', maxWidth: 400, maxHeight: '90vh', overflow: 'auto' }} onClick={e => e.stopPropagation()}>
           <b>Configurar IA</b>
           <p style={{ fontSize: 13, color: ai?.configured ? '#30a46c' : '#9aa4b2', margin: '6px 0 10px' }}>{ai?.configured ? `Ativa: ${AI_NAME[ai.provider] || ai.provider} · ${ai.model} · chave …${ai.last4}${ai.source === 'env' ? ' (do servidor)' : ''}` : 'Nenhuma IA ativa'}</p>
           <select style={{ ...inp, marginBottom: 8 }} value={af.provider} onChange={e => { const p = e.target.value; setAf({ ...af, provider: p, model: !af.model || Object.values(AI_DEF).includes(af.model) ? AI_DEF[p] : af.model }); }}>
@@ -278,11 +293,11 @@ export default function Terminal({ onOut }: { onOut: () => void }) {
           {aiMsg && <p role="alert" style={{ fontSize: 13, color: aiMsg[0] ? '#30a46c' : '#e5484d', margin: '0 0 8px' }}>{aiMsg[1]}</p>}
           <div style={{ display: 'flex', gap: 8 }}>
             <button style={btn('#3e63dd')} disabled={aiBusy || !af.apiKey} onClick={saveAi}>{aiBusy ? 'Conectando…' : 'Salvar e conectar'}</button>
-            <button style={btn('#262d38')} onClick={() => setCfgOpen(false)}>Fechar</button></div>
+            <button style={btn('#1c1c1e')} onClick={() => setCfgOpen(false)}>Fechar</button></div>
         </div></div>}
 
       {dlg && <div style={{ position: 'fixed', inset: 0, background: '#000b', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-        <div style={{ background: '#0e1116', border: '1px solid #262d38', borderRadius: 12, padding: 16, width: '100%', maxWidth: 380 }}>
+        <div style={{ background: '#0e1116', border: '1px solid #1c1c1e', borderRadius: 12, padding: 16, width: '100%', maxWidth: 380 }}>
           <b>Nova ordem · {symbol}</b>
           <select style={{ ...inp, margin: '8px 0' }} value={f.type} onChange={e => setF({ ...f, type: e.target.value })}>
             <option value="MARKET">Execução a mercado</option><option value="BUY_LIMIT">Buy Limit</option><option value="SELL_LIMIT">Sell Limit</option><option value="BUY_STOP">Buy Stop</option><option value="SELL_STOP">Sell Stop</option></select>
@@ -296,10 +311,10 @@ export default function Terminal({ onOut }: { onOut: () => void }) {
               <button style={btn('#e5484d')} onClick={async () => (await act({ action: 'sell', symbol, volume: lot, sl: f.sl, tp: f.tp })) && setDlg(false)}>Vender {q?.bid}</button>
               <button style={btn('#3e63dd')} onClick={async () => (await act({ action: 'buy', symbol, volume: lot, sl: f.sl, tp: f.tp })) && setDlg(false)}>Comprar {q?.ask}</button></> :
               <button style={btn('#3e63dd')} onClick={async () => (await act({ action: 'pending', type: f.type, symbol, volume: lot, price: f.price, sl: f.sl, tp: f.tp })) && setDlg(false)}>Enviar ordem</button>}
-            <button style={btn('#262d38')} onClick={() => setDlg(false)}>Cancelar</button></div>
+            <button style={btn('#1c1c1e')} onClick={() => setDlg(false)}>Cancelar</button></div>
         </div></div>}
 
-      <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, display: 'flex', background: '#171c24', borderTop: '1px solid #262d38', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, display: 'flex', background: '#0e0e10', borderTop: '1px solid #1c1c1e', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         {TABS.map(([k, t]) => <button key={k} onClick={() => setTab(k)} style={{ flex: 1, padding: '14px 2px', border: 0, background: 'none', color: tab === k ? '#3e63dd' : '#9aa4b2', fontSize: 12, fontWeight: tab === k ? 700 : 400 }}>{t}</button>)}
       </nav>
     </main>

@@ -1,9 +1,11 @@
 import { getConn } from '@/lib/metaapi';
 import { getSession } from '@/lib/session';
+import { sampleCandles } from '@/lib/preview';
 export const maxDuration = 60;
 export async function GET(r: Request) {
   const id = getSession(); if (!id) return Response.json({ error: 'Não conectado' }, { status: 401 });
   const u = new URL(r.url);
+  if (id === 'preview') return Response.json({ candles: sampleCandles(u.searchParams.get('symbol') || 'EURUSD', u.searchParams.get('tf') || '5m') });
   try {
     const { account } = await getConn(id);
     // limit conta para trás a partir de startTime (confira na doc da MetaApi sua versão do SDK)

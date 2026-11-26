@@ -1,10 +1,12 @@
 import { getConn } from '@/lib/metaapi';
 import { getSession } from '@/lib/session';
+import { previewTrade } from '@/lib/preview';
 const num = (v: any) => (v === '' || v == null || isNaN(+v) ? undefined : +v);
 const E = (m: string, s = 400) => Response.json({ error: m }, { status: s });
 export async function GET(r: Request) {
   const id = getSession(); if (!id) return E('Não conectado', 401);
   const u = new URL(r.url);
+  if (id === 'preview') return Response.json(previewTrade(u.searchParams.get('history'), (u.searchParams.get('q') || '').split(',').filter(Boolean).slice(0, 20)));
   try { const { conn } = await getConn(id);
     const h = u.searchParams.get('history');
     if (h) { const d = await conn.getDealsByTimeRange(new Date(Date.now() - (+h || 7) * 864e5), new Date());
@@ -17,6 +19,7 @@ export async function GET(r: Request) {
 }
 export async function POST(r: Request) {
   const id = getSession(); if (!id) return E('Não conectado', 401);
+  if (id === 'preview') return E('Pré-visualização: ordens desativadas. Conecte uma conta MT5 para operar.');
   const b = await r.json(), v = num(b.volume), sl = num(b.sl), tp = num(b.tp), px = num(b.price), sym = String(b.symbol || '');
   const needVol = () => { if (!(v! > 0 && v! <= 100)) throw new Error('Volume inválido'); if (!/^[\w.#-]{1,20}$/.test(sym)) throw new Error('Símbolo inválido'); };
   try { const { conn } = await getConn(id); let res: any;

@@ -8,12 +8,17 @@ export async function POST(r: Request) {
   if (!process.env.METAAPI_TOKEN || !process.env.SESSION_SECRET) return Response.json({ error: 'Servidor sem METAAPI_TOKEN ou SESSION_SECRET configurado (Vercel → Environment Variables → Redeploy)' }, { status: 500 });
   const { login, server, password } = await r.json();
   if (!login || !server || !password) return Response.json({ error: 'Preencha login, servidor e senha' }, { status: 400 });
+  const rel = process.env.METAAPI_RELIABILITY === 'high' ? 'high' : 'regular';
   try {
-    const account = await api().metatraderAccountApi.createAccount({ name: `u-${login}`, type: 'cloud', login: String(login), password, server, platform: 'mt5', magic: 0, reliability: (process.env.METAAPI_RELIABILITY === 'high' ? 'high' : 'regular') as 'high' | 'regular' });
+    const account = await api().metatraderAccountApi.createAccount({ name: `u-${login}`, type: 'cloud', login: String(login), password, server, platform: 'mt5', magic: 0, reliability: rel as 'high' | 'regular' });
     await account.deploy(); await account.waitConnected();
     setSession(account.id, createHash('sha256').update(`${server}|${login}`).digest('hex')); // chave estável: o estado sobrevive a sair e reconectar
     return Response.json({ ok: true });
-  } catch (e: any) { return Response.json({ error: e.message }, { status: 400 }); }
+  } catch (e: any) {
+    console.error('connect-falhou', JSON.stringify({ server, reliability: rel, status: e.status, details: e.details, message: e.message })); // vai para os logs do Vercel (sem senha)
+    const hint = /top up/i.test(String(e.message)) ? ' — A MetaApi cobra crédito para esse tipo de conta (contas reais costumam exigir confiabilidade alta). Teste com uma conta demo ou adicione crédito em metaapi.cloud.' : '';
+    return Response.json({ error: e.message + hint }, { status: 400 });
+  }
 }
 export async function DELETE() { // sair: remove a conta da MetaApi (para a cobrança), exceto se o automático 24h estiver ligado
   const id = getSession(), uk = getUserKey(); let keep = false;

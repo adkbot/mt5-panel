@@ -6,7 +6,8 @@ import { api } from '@/lib/ui';
 const CANDLES = [34, 52, 41, 66, 48, 72, 58, 90, 70, 64, 96, 80, 110, 92, 84, 120]; // velas decorativas fixas
 function Connect({ onOk }: { onOk: () => void }) {
   const [f, setF] = useState({ login: '', server: '', password: '' }), [err, setErr] = useState(''), [busy, setBusy] = useState(false);
-  const go = async () => { setBusy(true); setErr(''); const d = await api('/api/connect', 'POST', f); setBusy(false); d.error ? setErr(d.error) : onOk(); };
+  const go = async () => { setBusy(true); setErr(''); const d = await api('/api/connect', 'POST', f); setF(x => ({ ...x, password: '' })); setBusy(false); d.error ? setErr(d.error) : onOk(); };
+  const seePreview = async () => { setBusy(true); setErr(''); const d = await api('/api/preview', 'POST'); setBusy(false); d.error ? setErr(d.error) : onOk(); };
   const fields = [['login', 'Login (ID da conta)', 'text'], ['server', 'Servidor (ex.: ICMarkets-Demo)', 'text'], ['password', 'Senha de negociação', 'password']] as const;
   return (
     <div className="login">
@@ -19,8 +20,10 @@ function Connect({ onOk }: { onOk: () => void }) {
         <form className="card" onSubmit={e => { e.preventDefault(); go(); }}>
           <h1>Conectar conta MT5</h1>
           <p className="sub">Use o login, o servidor e a senha de negociação da sua corretora. Comece por uma conta demo.</p>
-          {fields.map(([k, t, ty]) => <label key={k}>{t}<input type={ty} value={f[k]} onChange={e => setF({ ...f, [k]: e.target.value })} autoComplete={k === 'password' ? 'current-password' : 'off'} inputMode={k === 'login' ? 'numeric' : undefined} required /></label>)}
+          {fields.map(([k, t, ty]) => <label key={k}>{t}<input type={ty} value={f[k]} onChange={e => setF({ ...f, [k]: e.target.value })} autoComplete={k === 'password' ? 'new-password' : 'off'} name={'adk_' + k} data-lpignore="true" data-1p-ignore inputMode={k === 'login' ? 'numeric' : undefined} required /></label>)}
+          <button type="button" className="link" onClick={() => { setF({ login: '', server: '', password: '' }); setErr(''); }}>Limpar campos</button>
           <button className="cta" disabled={busy}>{busy ? 'Conectando… pode levar até 1 minuto' : 'Conectar conta'}</button>
+          <button type="button" className="ghost" disabled={busy} onClick={seePreview}>Ver o painel sem conectar (dados de exemplo)</button>
           {err && <p className="err" role="alert">{err}</p>}
           <p className="fine">Sua senha vai direto para a MetaApi e não fica guardada aqui.</p>
         </form>

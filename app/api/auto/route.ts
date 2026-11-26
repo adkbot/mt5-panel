@@ -5,6 +5,7 @@ const bad = (m: string, s = 400) => Response.json({ error: m }, { status: s });
 // Liga/desliga o automático 24h: grava o pedido no banco; quem executa é o worker (Render).
 export async function POST(r: Request) {
   const accountId = getSession(), uk = getUserKey(); if (!accountId || !uk) return bad('Não conectado', 401);
+  if (accountId === 'preview') return bad('Disponível só com uma conta MT5 conectada');
   const { enabled, symbol, tf, code } = await r.json(), sb = db(), now = new Date().toISOString();
   const put = (key: string, value: any) => sb.from('panel_state').upsert({ user_key: uk, key, value, updated_at: now }, { onConflict: 'user_key,key' });
   if (!enabled) { await put('auto', { enabled: false }); return Response.json({ ok: true }); }
