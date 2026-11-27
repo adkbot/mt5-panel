@@ -58,11 +58,11 @@ export default function Terminal({ onOut }: { onOut: () => void }) {
   useEffect(() => {
     if (tab !== 'chart') return;
     const el = document.getElementById('chart'); if (!el) return;
-    const chart = createChart(el, { height: 360, layout: { background: { color: '#000000' }, textColor: '#9aa4b2' }, grid: { vertLines: { color: '#171c24' }, horzLines: { color: '#171c24' } }, timeScale: { timeVisible: true } });
-    const cs = chart.addCandlestickSeries(), lines: any = {}; let dead = false, first = true;
+    const chart = createChart(el, { autoSize: true, layout: { background: { color: '#000000' }, textColor: '#9aa4b2' }, grid: { vertLines: { color: '#171c24' }, horzLines: { color: '#171c24' } }, timeScale: { timeVisible: true } });
+    const cs = chart.addCandlestickSeries(), lines: any = {}; let dead = false, first = true, lastBar: any = null;
     const load = async () => {
       const r = await api(`/api/candles?symbol=${symbol}&tf=${TF[tf]}`); if (dead) return; if (r.error) return setMsg(r.error);
-      cs.setData(r.candles);
+      cs.setData(r.candles); lastBar = r.candles.length ? { ...r.candles[r.candles.length - 1] } : null;
       const o = await runIndicator(applied, r.candles); if (dead) return;
       indRef.current = { ...o, lastTime: r.candles[r.candles.length - 1]?.time };
       if (o?.error) setMsg('Indicador: ' + o.error);
@@ -71,7 +71,8 @@ export default function Terminal({ onOut }: { onOut: () => void }) {
       if (first) { chart.timeScale().fitContent(); first = false; }
     };
     load(); const t = setInterval(load, 10000);
-    return () => { dead = true; clearInterval(t); chart.remove(); };
+    const t2 = setInterval(() => { const b = qRef.current?.[symbol]?.bid; if (!lastBar || b == null) return; lastBar.close = b; lastBar.high = Math.max(lastBar.high, b); lastBar.low = Math.min(lastBar.low, b); cs.update(lastBar); }, 1000); // última vela acompanha a cotação
+    return () => { dead = true; clearInterval(t); clearInterval(t2); chart.remove(); };
   }, [tab, symbol, tf, applied]);
 
   const [jn, setJn] = useState<any[]>([]), jnRef = useRef<any[]>([]);
@@ -166,6 +167,7 @@ export default function Terminal({ onOut }: { onOut: () => void }) {
     setBusy(false);
   };
 
+  const qRef = useRef<any>(null); qRef.current = d?.quotes;
   const tickRef = useRef<Record<string, { p: number; c: string }>>({});
   const tick = (sym: string, bid?: number) => { const t = (tickRef.current[sym] ||= { p: bid ?? 0, c: '#e6e6e6' }); if (bid != null) { if (bid > t.p) t.c = BUY; else if (bid < t.p) t.c = SELL; t.p = bid; } return t.c; };
   const px = (n?: number) => { if (n == null) return '—'; const t = n.toFixed(dg(n)); return <><span style={{ fontSize: 15 }}>{t.slice(0, -3)}</span><b style={{ fontSize: 21, fontWeight: 600 }}>{t.slice(-3, -1)}</b><sup style={{ fontSize: 11 }}>{t.slice(-1)}</sup></>; };
@@ -174,14 +176,14 @@ export default function Terminal({ onOut }: { onOut: () => void }) {
   const sm = (bg = '#1c1c1e') => ({ ...btn(bg), flex: 'none', padding: '6px 10px', fontSize: 13 } as const);
 
   return (
-    <main style={{ maxWidth: 760, margin: '0 auto', padding: '12px 12px 80px' }}>
+    <main style={{ maxWidth: tab === 'chart' ? 'none' : 960, margin: '0 auto', padding: '8px 10px 76px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
         <b>{symbol}</b>
         <span>{A ? <>Saldo {A.balance} · Equity {A.equity} <span style={{ color: col(A.equity - A.balance) }}>({(A.equity - A.balance).toFixed(2)})</span></> : '…'}</span>
         <button style={sm()} aria-label="Configurar IA" title="Configurar IA" onClick={() => setCfgOpen(true)}>⚙<span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: 4, marginLeft: 5, background: ai?.configured ? '#30a46c' : '#e5484d' }} /></button>
         <button style={sm()} onClick={async () => { await api('/api/connect', 'DELETE'); onOut(); }}>Trocar conta</button>
       </div>
-      {d?.preview && <div style={{ background: '#3a2f0b', border: '1px solid #f5a52455', color: '#f5d58a', borderRadius: 8, padding: '8px 10px', fontSize: 12, margin: '0 0 8px' }}>Pré-visualização com dados de exemplo. As ordens estão desativadas. Toque em Trocar conta e conecte uma conta MT5 para operar de verdade.</div>}
+      {d?.preview && <div style={{ background: '#3a2f0b', border: '1px solid #f5a52455', color: '#f5d58a', borderRadius: 8, padding: '8px 10px', fontSize: 12, margin: '0 0 8px' }}>{d.source === 'mercado' ? 'Pré-visualização com cotações públicas de mercado (Yahoo Finance), que podem diferir um pouco da sua corretora.' : 'Pré-visualização com dados de exemplo.'} As ordens estão desativadas. Toque em Trocar conta e conecte uma conta MT5 para operar de verdade.</div>}
       {msg && <p style={{ color: '#f5a524', margin: '4px 0' }}>{msg}</p>}
 
       {tab === 'quotes' && <>
@@ -196,7 +198,7 @@ export default function Terminal({ onOut }: { onOut: () => void }) {
 
       {tab === 'chart' && <>
         <div style={{ display: 'flex', gap: 4, overflowX: 'auto', marginBottom: 6 }}>{Object.keys(TF).map(k => <button key={k} style={sm(k === tf ? '#3e63dd' : '#1c1c1e')} onClick={() => setTf(k)}>{k}</button>)}</div>
-        <div id="chart" />
+        <div id="chart" style={{ height: 'calc(100vh - 250px)', minHeight: 320 }} />
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
           <button style={btn('#e5484d')} onClick={() => act({ action: 'sell', symbol, volume: lot })}>Vender {q?.bid}</button>
           <input style={{ ...inp, width: 80 }} type="number" step="0.01" value={lot} onChange={e => setLot(+e.target.value)} />

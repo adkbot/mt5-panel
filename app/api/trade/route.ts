@@ -6,7 +6,7 @@ const E = (m: string, s = 400) => Response.json({ error: m }, { status: s });
 export async function GET(r: Request) {
   const id = getSession(); if (!id) return E('Não conectado', 401);
   const u = new URL(r.url);
-  if (id === 'preview') return Response.json(previewTrade(u.searchParams.get('history'), (u.searchParams.get('q') || '').split(',').filter(Boolean).slice(0, 20)));
+  if (id === 'preview') return Response.json(await previewTrade(u.searchParams.get('history'), (u.searchParams.get('q') || '').split(',').filter(Boolean).slice(0, 20)));
   try { const { conn } = await getConn(id);
     const h = u.searchParams.get('history');
     if (h) { const d = await conn.getDealsByTimeRange(new Date(Date.now() - (+h || 7) * 864e5), new Date());
