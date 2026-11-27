@@ -1,13 +1,15 @@
 import { getConn } from '@/lib/metaapi';
 import { getSession } from '@/lib/session';
-import { previewTrade } from '@/lib/preview';
+import { previewTrade, PREVIEW_SYMBOLS } from '@/lib/preview';
 const num = (v: any) => (v === '' || v == null || isNaN(+v) ? undefined : +v);
 const E = (m: string, s = 400) => Response.json({ error: m }, { status: s });
 export async function GET(r: Request) {
   const id = getSession(); if (!id) return E('Não conectado', 401);
   const u = new URL(r.url);
+  if (id === 'preview' && u.searchParams.get('symbols')) return Response.json({ symbols: PREVIEW_SYMBOLS });
   if (id === 'preview') return Response.json(await previewTrade(u.searchParams.get('history'), (u.searchParams.get('q') || '').split(',').filter(Boolean).slice(0, 20)));
   try { const { conn } = await getConn(id);
+    if (u.searchParams.get('symbols')) return Response.json({ symbols: (await conn.getSymbols()).slice(0, 5000) });
     const h = u.searchParams.get('history');
     if (h) { const d = await conn.getDealsByTimeRange(new Date(Date.now() - (+h || 7) * 864e5), new Date());
       return Response.json({ deals: (d.deals || []).filter((x: any) => x.entryType === 'DEAL_ENTRY_OUT').reverse() }); }

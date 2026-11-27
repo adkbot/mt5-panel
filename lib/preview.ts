@@ -37,7 +37,7 @@ export async function marketCandles(symbol: string, tf: string): Promise<any[] |
 export async function candlesFor(symbol: string, tf: string) { const r = await marketCandles(symbol, tf); return r ? { candles: r, source: 'mercado' } : { candles: sampleCandles(symbol, tf), source: 'exemplo' }; }
 const px = async (sy: string) => { const r = await marketCandles(sy, '5m'); return { c: (r ? r[r.length - 1].close : last(sy)) as number, real: !!r }; };
 export async function previewTrade(history: string | null, syms: string[]) {
-  if (history) return { deals: [], preview: true };
+  if (history) return { deals: sampleDeals(+history || 7), preview: true };
   const quotes: any = {}, flags: boolean[] = [];
   for (const sy of syms) { const { c, real } = await px(sy), d = dec(c), sp = c * 0.00002; flags.push(real); quotes[sy] = { bid: +c.toFixed(d), ask: +(c + sp).toFixed(d) }; }
   const [E, G, X] = await Promise.all([px('EURUSD'), px('GBPUSD'), px('XAUUSD')]), e = E.c, g = G.c, x = X.c;
@@ -47,4 +47,15 @@ export async function previewTrade(history: string | null, syms: string[]) {
       { id: 'ex1', symbol: 'EURUSD', type: 'POSITION_TYPE_BUY', volume: 0.1, openPrice: +(e - 0.0012).toFixed(5), currentPrice: +e.toFixed(5), stopLoss: +(e - 0.003).toFixed(5), takeProfit: +(e + 0.004).toFixed(5), profit: 12.4 },
       { id: 'ex2', symbol: 'XAUUSD', type: 'POSITION_TYPE_SELL', volume: 0.02, openPrice: +(x + 1.6).toFixed(2), currentPrice: +x.toFixed(2), stopLoss: +(x + 6).toFixed(2), takeProfit: +(x - 10).toFixed(2), profit: -3.1 }],
     orders: [{ id: 'ex3', symbol: 'GBPUSD', type: 'ORDER_TYPE_BUY_LIMIT', currentVolume: 0.05, openPrice: +(g - 0.004).toFixed(5), stopLoss: +(g - 0.008).toFixed(5), takeProfit: +(g + 0.006).toFixed(5) }] };
+}
+
+export const PREVIEW_SYMBOLS = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD', 'XAUUSD', 'XAGUSD', 'BTCUSD', 'ETHUSD', 'US30', 'NAS100', 'US500', 'USOIL'];
+// Operações de EXEMPLO para o relatório da pré-visualização.
+export function sampleDeals(days: number) {
+  let seed = 4242; const r = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296, syms = ['EURUSD', 'GBPUSD', 'XAUUSD', 'USDJPY'], out: any[] = [], n = Math.min(60, Math.max(8, days * 2));
+  for (let i = 0; i < n; i++) {
+    const buy = r() > 0.5, win = r() < 0.55, profit = +(win ? 4 + r() * 22 : -(3 + r() * 14)).toFixed(2);
+    out.push({ id: 'd' + i, positionId: 'p' + i, time: new Date(Date.now() - (n - i) * (days * 864e5 / n)).toISOString(), symbol: syms[Math.floor(r() * 4)], type: buy ? 'DEAL_TYPE_SELL' : 'DEAL_TYPE_BUY', volume: +(0.01 * (1 + Math.floor(r() * 5))).toFixed(2), price: +(1.08 + r() * 0.01).toFixed(5), profit, commission: -0.14, swap: 0 });
+  }
+  return out.reverse();
 }

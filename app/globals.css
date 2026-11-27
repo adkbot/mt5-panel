@@ -21,3 +21,23 @@
 .ghost{width:100%;margin-top:10px;padding:12px;border-radius:10px;background:transparent;border:1px solid #e6bf6a66;color:#e6bf6a;font:600 14px system-ui,sans-serif;cursor:pointer;transition:background .2s}
 .ghost:hover{background:#e6bf6a14}.ghost:disabled{opacity:.5;cursor:wait}.ghost:focus-visible{outline:2px solid #f3d98b;outline-offset:3px}
 .link{display:block;margin:12px 0 0 auto;background:none;border:0;color:#a89c82;font:13px system-ui,sans-serif;text-decoration:underline;cursor:pointer}.link:hover{color:#e6bf6a}
+
+.app{display:flex;min-height:100vh;background:#000}
+.side{position:sticky;top:0;align-self:flex-start;height:100vh;width:96px;flex:none;display:flex;flex-direction:column;gap:4px;padding:8px 6px;background:#0b0b0d;border-right:1px solid #1c1c1e;overflow-y:auto}
+.content{flex:1;min-width:0;padding:8px 10px}
+.nb{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 2px;border:0;border-radius:8px;background:none;color:#8e8e93;font:11px system-ui,sans-serif;cursor:pointer}
+.nb svg{width:22px;height:22px}.nb:hover{color:#e6e6e6}.nb.on{color:#4c8dff;background:#14213d}
+.tp{margin-top:auto;display:flex;flex-direction:column;gap:6px;padding-top:8px;border-top:1px solid #1c1c1e}
+.sell,.buy{border:0;border-radius:6px;padding:8px 2px;color:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;line-height:1.15}
+.sell{background:#c62828}.buy{background:#1e5ce6}.sell:hover{filter:brightness(1.12)}.buy:hover{filter:brightness(1.12)}
+.sell small,.buy small{font-size:10px;opacity:.85;letter-spacing:.04em}
+.p1{font-size:11px}.p2{font-size:18px;font-weight:600}.p3{font-size:10px}
+.lot{width:100%;padding:6px 4px;border-radius:6px;border:1px solid #2a2a2a;background:#0b0b0d;color:#fff;text-align:center;font-size:14px}
+.more{border:1px solid #2a2a2a;background:none;color:#c8c8c8;border-radius:6px;padding:6px;font-size:12px;cursor:pointer}.more:hover{background:#1c1c1e}
+@media (max-width:700px){.side{width:60px;padding:6px 3px}.nb span{display:none}.p1{font-size:8px}.p2{font-size:12px}.p3{font-size:8px}.sell small,.buy small{font-size:8px}.content{padding:6px}}
+.oc{display:flex;align-items:center;gap:5px;justify-content:center;font:11px system-ui,sans-serif;color:#8e8e93;cursor:pointer}
+@media (max-width:700px){.oc{font-size:10px}}
+html,body{-webkit-text-size-adjust:100%;overscroll-behavior:none}
+.side{padding-bottom:calc(8px + env(safe-area-inset-bottom));padding-left:calc(6px + env(safe-area-inset-left))}
+.content{padding-right:calc(10px + env(safe-area-inset-right));padding-bottom:env(safe-area-inset-bottom)}
+@media (max-width:700px){input,select,textarea{font-size:16px !important}button{touch-action:manipulation}}

@@ -1,5 +1,7 @@
-# Painel MT5 multiusuário (Next.js + MetaApi + Supabase)
-Variáveis (no Vercel > Settings > Environment Variables): METAAPI_TOKEN, SESSION_SECRET (`openssl rand -hex 32`), ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
-Banco: tabela `panel_state` já criada no projeto Supabase `mt5-panel`; indicadores, diário, perfil do setup e travas ficam lá, ligados a login+servidor da conta MT5.
-Local: `cp .env.example .env.local && npm install && npm run dev`.
-Agentes: o executor automático roda no navegador com o painel aberto; para 24h é preciso um worker no servidor.
+# ADK New Trade · Painel MT5 (Next.js + MetaApi + Supabase)
+Painel web e instalável no celular (PWA) para operar contas MT5 pela MetaApi.
+
+**Recursos:** barra lateral estilo MT5; gráfico (velas, Heikin Ashi, linha) com tema escuro/claro/auto, janela de dados, cronômetro da vela e linhas das posições; vários indicadores ao mesmo tempo, com legenda; biblioteca de indicadores (EMA, SMA, Bollinger, VWAP, ZigZag, Pré-Tóquio); conversor MQL5 para JS; negociação de 1 clique (liga/desliga), ordens a mercado e pendentes, fechar tudo/lucro/prejuízo; relatório de trading; assistente de IA somente leitura (Gemini, OpenRouter, OpenAI, Anthropic ou endpoint próprio); agentes que aprendem o setup e operam no navegador ou 24h no worker.
+
+**Variáveis (Vercel):** METAAPI_TOKEN, SESSION_SECRET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (opcional: METAAPI_RELIABILITY=high, ANTHROPIC_API_KEY ou AI_API_KEY).
+**Worker 24h:** pasta `worker` (Render). **Celular:** abra o endereço e use "Adicionar à tela inicial".

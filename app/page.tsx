@@ -25,7 +25,7 @@ function Connect({ onOk }: { onOk: () => void }) {
           <button className="cta" disabled={busy}>{busy ? 'Conectando… pode levar até 1 minuto' : 'Conectar conta'}</button>
           <button type="button" className="ghost" disabled={busy} onClick={seePreview}>Ver o painel sem conectar (dados de exemplo)</button>
           {err && <p className="err" role="alert">{err}</p>}
-          <p className="fine">Sua senha vai direto para a MetaApi e não fica guardada aqui.</p>
+          <p className="fine">Sua senha vai direto para a MetaApi e não fica guardada aqui. Se a sua corretora oferecer, use a senha de nível Trading, que não permite saques nem troca de senha.</p>
         </form>
       </main>
     </div>
